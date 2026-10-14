@@ -2862,6 +2862,63 @@ describe('DOM', () => {
       expect(effectCount).toBe(2)
       expect(cleanupCount).toBe(1)
     })
+
+    it('should not rerun when a dep remains NaN', async () => {
+      let effectCount = 0
+      let cleanupCount = 0
+
+      const App = () => {
+        const [count, setCount] = useState(0)
+        const value = NaN
+        useEffect(() => {
+          effectCount++
+          return () => {
+            cleanupCount++
+          }
+        }, [value])
+        return (
+          <div>
+            <p>{count}</p>
+            <button onClick={() => setCount(count + 1)}>+</button>
+          </div>
+        )
+      }
+      const app = <App />
+      render(app, root)
+      await new Promise((resolve) => setTimeout(resolve))
+      expect(effectCount).toBe(1)
+      expect(cleanupCount).toBe(0)
+      root.querySelectorAll('button')[0].click() // count++
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve))
+      expect(effectCount).toBe(1)
+      expect(cleanupCount).toBe(0)
+    })
+
+    it('should rerun when a dep changes from 0 to -0', async () => {
+      let effectCount = 0
+
+      const App = () => {
+        const [value, setValue] = useState(0)
+        useEffect(() => {
+          effectCount++
+        }, [value])
+        return (
+          <div>
+            <p>{Object.is(value, -0) ? '-0' : '0'}</p>
+            <button onClick={() => setValue(-0)}>-0</button>
+          </div>
+        )
+      }
+      const app = <App />
+      render(app, root)
+      await new Promise((resolve) => setTimeout(resolve))
+      expect(effectCount).toBe(1)
+      root.querySelectorAll('button')[0].click() // value: 0 -> -0
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve))
+      expect(effectCount).toBe(2)
+    })
   })
 
   describe('useLayoutEffect', () => {
